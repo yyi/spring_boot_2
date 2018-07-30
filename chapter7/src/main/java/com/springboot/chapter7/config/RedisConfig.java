@@ -33,9 +33,9 @@ public class RedisConfig {
 		JedisConnectionFactory connectionFactory = new JedisConnectionFactory(poolConfig);
 		// 配置Redis连接服务器
 		RedisStandaloneConfiguration rsc = connectionFactory.getStandaloneConfiguration();
-		rsc.setHostName("192.168.10.128");
+		rsc.setHostName("127.0.0.1");
 		rsc.setPort(6379);
-		rsc.setPassword(RedisPassword.of("123456"));
+	//	rsc.setPassword(RedisPassword.of("123456"));
 		this.connectionFactory = connectionFactory;
 		return connectionFactory;
 	}

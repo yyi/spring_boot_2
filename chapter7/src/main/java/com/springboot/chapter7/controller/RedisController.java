@@ -8,15 +8,9 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisZSetCommands.Range;
-import org.springframework.data.redis.core.BoundHashOperations;
-import org.springframework.data.redis.core.BoundListOperations;
-import org.springframework.data.redis.core.BoundSetOperations;
-import org.springframework.data.redis.core.BoundZSetOperations;
-import org.springframework.data.redis.core.DefaultTypedTuple;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.*;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.serializer.RedisSerializer;
@@ -173,21 +167,23 @@ public class RedisController {
 	@ResponseBody
 	public Map<String, Object> testMulti() {
 		redisTemplate.opsForValue().set("key1", "value1");
-		List list = (List) redisTemplate.execute((RedisOperations operations) -> {
-			// 设置要监控key1
-			operations.watch("key1");
-			// 开启事务，在exec命令执行前，全部都只是进入队列
-			operations.multi();
-			operations.opsForValue().set("key2", "value2");
-			operations.opsForValue().increment("key1", 1);// ①
-			// 获取值将为null，因为redis只是把命令放入队列，
-			Object value2 = operations.opsForValue().get("key2");
-			System.out.println("命令在队列，所以value为null【" + value2 + "】");
-			operations.opsForValue().set("key3", "value3");
-			Object value3 = operations.opsForValue().get("key3");
-			System.out.println("命令在队列，所以value为null【" + value3 + "】");
-			// 执行exec命令，将先判别key1是否在监控后被修改过，如果是不执行事务，否则执行事务
-			return operations.exec();// ②
+		List list = (List) redisTemplate.execute(new SessionCallback(){
+			@Override
+			public Object execute(RedisOperations operations) throws DataAccessException {
+				operations.watch("key1");
+				// 开启事务，在exec命令执行前，全部都只是进入队列
+				operations.multi();
+				operations.opsForValue().set("key2", "value2");
+				operations.opsForValue().increment("key1", 1);// ①
+				// 获取值将为null，因为redis只是把命令放入队列，
+				Object value2 = operations.opsForValue().get("key2");
+				System.out.println("命令在队列，所以value为null【" + value2 + "】");
+				operations.opsForValue().set("key3", "value3");
+				Object value3 = operations.opsForValue().get("key3");
+				System.out.println("命令在队列，所以value为null【" + value3 + "】");
+				// 执行exec命令，将先判别key1是否在监控后被修改过，如果是不执行事务，否则执行事务
+				return operations.exec();// ②
+			}
 		});
 		System.out.println(list);
 		Map<String, Object> map = new HashMap<String, Object>();
